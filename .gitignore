@@ -1,0 +1,7 @@
+# NomaanOS gitignore
+*.pyc
+__pycache__/
+node_modules/
+.env
+secrets/
+backups/
