@@ -1,0 +1,2 @@
+[console_scripts]
+nomaanos = nomaanos:main
