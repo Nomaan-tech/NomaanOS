@@ -1,79 +1,89 @@
-"""
-Robust runner: tries multiple import paths so both 'pip installed' and
-'development workspace (src/...)' layouts work.
-Provides list_modules() and run(name).
-"""
-import importlib
-import os
+"""Robust runner: prefer main(); then try run() with no args; then run(name)."""
+from importlib import import_module
+import inspect, os, pkgutil
 
-MODULE_DIR = "src/nomaanos/modules"
-
-def _try_import_module_candidates(name):
-    """
-    Try import candidates in order:
-     - nomaanos.modules.<name>    (installed package)
-     - src.nomaanos.modules.<name> (dev layout used earlier)
-     - relative import .<name> from this package
-    Return imported module or raise ImportError.
-    """
-    candidates = [
-        f"nomaanos.modules.{name}",
-        f"src.nomaanos.modules.{name}",
-        f".{name}"
-    ]
-    last_err = None
-    for cand in candidates:
-        try:
-            # if cand starts with dot, treat as package-relative
-            if cand.startswith("."):
-                mod = importlib.import_module(cand, __name__)
-            else:
-                mod = importlib.import_module(cand)
-            return mod
-        except Exception as e:
-            last_err = e
-            # continue to next candidate
-            continue
-    # nothing worked
-    raise ImportError(f"Failed to import module {name}; last error: {last_err}") from last_err
+PKG = "nomaanos.modules"
 
 def list_modules():
-    """
-    List available module filenames in dev layout if present,
-    otherwise return empty list (runner can still be used).
-    """
-    files = []
-    # prefer dev filesystem listing if exists
+    out = []
     try:
-        base = os.path.join(os.getcwd(), "src", "nomaanos", "modules")
-        if os.path.isdir(base):
-            for f in sorted(os.listdir(base)):
-                if f.endswith(".py") and f not in ("__init__.py", "runner.py"):
-                    files.append(f.replace(".py", ""))
-            return files
+        pkg = import_module(PKG)
+        p = os.path.dirname(pkg.__file__)
+        for f in sorted(os.listdir(p)):
+            if f.endswith(".py") and not f.startswith("__") and f != "runner.py":
+                out.append(f[:-3])
     except Exception:
-        pass
-    # fallback: return empty list (installed package can still run known modules)
-    return []
+        try:
+            for finder, name, ispkg in pkgutil.iter_modules(import_module("nomaanos").__path__):
+                # names may include modules not in modules package; filter later if needed
+                pass
+        except Exception:
+            pass
+    return out
+
+def _import_module_by_name(name):
+    if not name:
+        return None
+    candidates = [
+        f"{PKG}.{name}",
+        f"nomaanos.{name}",
+        name,
+    ]
+    last = None
+    for c in candidates:
+        try:
+            return import_module(c)
+        except Exception as e:
+            last = e
+    # final attempt (relative)
+    try:
+        return import_module(f"nomaanos.modules.{name}")
+    except Exception as e:
+        raise ImportError(f"Could not import module {name}: {last}") from last
+
+def _call_entrypoint(mod, name):
+    """Call main()/run() in a tolerant order."""
+    if mod is None:
+        raise RuntimeError("No module to call")
+
+    # prefer main()
+    if hasattr(mod, "main") and callable(getattr(mod, "main")):
+        main_fn = getattr(mod, "main")
+        try:
+            sig = inspect.signature(main_fn)
+            if len(sig.parameters) == 0:
+                return main_fn()
+            else:
+                return main_fn(name)
+        except Exception:
+            # last-resort call
+            return main_fn()
+
+    # then try run() - first try no-arg, then try single-arg
+    if hasattr(mod, "run") and callable(getattr(mod, "run")):
+        run_fn = getattr(mod, "run")
+        # try no-arg first (safe)
+        try:
+            return run_fn()
+        except TypeError:
+            # then try with name
+            try:
+                return run_fn(name)
+            except Exception:
+                # re-raise last error
+                raise
+
+    # module itself callable?
+    if callable(mod):
+        try:
+            return mod()
+        except TypeError:
+            return mod(name)
+
+    raise RuntimeError(f"No callable entrypoint found in module {mod!r}")
 
 def run(name):
-    """
-    Import the module by name (using flexible candidate list) and call its main()/run()/entrypoint.
-    Accepts modules that define:
-      - def main(): -> returns or prints
-      - or def run(): -> returns or prints
-    """
-    mod = _try_import_module_candidates(name)
-    # prefer main(), then run()
-    for attr in ("main", "run"):
-        if hasattr(mod, attr):
-            fn = getattr(mod, attr)
-            try:
-                return fn()
-            except TypeError:
-                # if function expects args, call with name
-                try:
-                    return fn(name)
-                except Exception as e:
-                    raise
-    raise AttributeError(f"Module '{name}' has no callable main() or run().")
+    if not name:
+        raise ValueError("module name required, e.g. 'nomaanos run sysinfo'")
+    mod = _import_module_by_name(name)
+    return _call_entrypoint(mod, name)

@@ -3,8 +3,10 @@ README.md
 setup.cfg
 setup.py
 src/nomaanos/__init__.py
+src/nomaanos/__main__.py
 src/nomaanos/config.py
 src/nomaanos/core.py
+src/nomaanos/main.py
 src/nomaanos/modules.py
 src/nomaanos/runner.py
 src/nomaanos.egg-info/PKG-INFO
