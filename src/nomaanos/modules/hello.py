@@ -1,2 +1,2 @@
 def main():
-    return "👋 Hello from NomaanOS module!"
+    return {"hello": "world"}

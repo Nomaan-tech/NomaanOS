@@ -1,24 +1,6 @@
 Metadata-Version: 2.4
 Name: nomaanos
 Version: 0.2
-Summary: Personal OS-like CLI environment
-Author: NomaanOS
-License: MIT
-Requires-Python: >=3.8
-Description-Content-Type: text/markdown
+Summary: NomaanOS local package
 License-File: LICENSE
 Dynamic: license-file
-
-# NomaanOS
-
-Personal project: NomaanOS — phone-first, Termux-driven personal OS environment.
-
-## Goals
-- Secure, reproducible Termux + proot environment
-- Git-backed configs and scripts
-- Automated backups (GitHub + Google Drive)
-- Modular project folders: src, scripts, bin, docs
-
-## Quick start (local)
-- Work inside `~/workspace/nomaanos`
-- Scripts in `scripts/`, executables in `bin/`

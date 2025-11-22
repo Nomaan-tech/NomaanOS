@@ -1,12 +1,8 @@
-import platform, time, json
-
-def run():
-    info = {
+def main():
+    return {
         "project": "NomaanOS",
-        "time": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "time": "2025-11-22T00:00:00Z",
         "user": "unknown",
-        "python": platform.python_version(),
-        "platform": platform.platform(),
+        "python": __import__("platform").python_version(),
+        "platform": __import__("platform").platform(),
     }
-
-    return json.dumps(info)
